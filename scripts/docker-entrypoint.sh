@@ -67,7 +67,11 @@ function create_config {
      /etc/openxpki/customconfig.sh
   elif [ -f "/usr/share/doc/libopenxpki-perl/examples/sampleconfig.sh" ]; then
     echo "Found no custom customconfig.sh - using default sampleconfig.sh from /usr/share/doc/libopenxpki-perl/examples/sampleconfig.sh"
-    /usr/share/doc/libopenxpki-perl/examples/sampleconfig.sh
+    sh /usr/share/doc/libopenxpki-perl/examples/sampleconfig.sh
+  elif [ -f "/usr/share/doc/libopenxpki-perl/examples/sampleconfig.sh.gz" ]; then
+    echo "Found no custom customconfig.sh - using default compressed sampleconfig.sh.gz from /usr/share/doc/libopenxpki-perl/examples/sampleconfig.sh.gz"
+    gunzip < /usr/share/doc/libopenxpki-perl/examples/sampleconfig.sh.gz > /usr/share/doc/libopenxpki-perl/examples/sampleconfig.sh
+    sh /usr/share/doc/libopenxpki-perl/examples/sampleconfig.sh
   else
     echo "Found no sampleconfig.sh and no customconfig.sh"
     exit 1
@@ -98,11 +102,53 @@ function create_db {
 }
 
 function init_db {
-
   # Extract sql file and install database shema
   zcat /usr/share/doc/libopenxpki-perl/examples/schema-mysql.sql.gz | \
     mysql -u ${APP_DB_USER} -p${APP_DB_PASS} -D ${APP_DB_NAME} -h ${APP_DB_HOST} -P ${APP_DB_PORT}
 
+}
+
+function update_db {
+  local DB_NUM=0
+  if [ -f "/etc/openxpki/.db_num" ]; then
+    DB_NUM=$(cat /etc/openxpki/.db_num)
+  else
+    echo "Found no db_num, running all updates anyway"
+  fi
+
+  #Upate DB from 1.x to 2.x
+  if [ $DB_NUM -lt 1 ]; then
+    mysql -u ${APP_DB_USER} -p${APP_DB_PASS} -D ${APP_DB_NAME} -h ${APP_DB_HOST} -P ${APP_DB_PORT} << EOF
+    ALTER TABLE certificate
+      ADD revocation_time int(10) unsigned DEFAULT NULL,
+      ADD invalidity_time int(10) unsigned DEFAULT NULL,
+      ADD reason_code varchar(50) DEFAULT NULL,
+      ADD hold_instruction_code varchar(50) DEFAULT NULL;
+EOF
+
+    mysql -u ${APP_DB_USER} -p${APP_DB_PASS} -D ${APP_DB_NAME} -h ${APP_DB_HOST} -P ${APP_DB_PORT} << EOF
+    UPDATE crr crr LEFT JOIN certificate crt USING (identifier)
+    SET crt.reason_code = crr.reason_code,
+        crt.revocation_time = crr.revocation_time,
+        crt.invalidity_time = crr.invalidity_time,
+        crt.hold_instruction_code = crr.hold_code;
+EOF
+
+    mysql -u ${APP_DB_USER} -p${APP_DB_PASS} -D ${APP_DB_NAME} -h ${APP_DB_HOST} -P ${APP_DB_PORT} << EOF
+    ALTER TABLE workflow_history
+    ADD workflow_node varchar(64) DEFAULT NULL;
+EOF
+
+    mysql -u ${APP_DB_USER} -p${APP_DB_PASS} -D ${APP_DB_NAME} -h ${APP_DB_HOST} -P ${APP_DB_PORT} << EOF
+    ALTER TABLE crl
+    ADD crl_number decimal(49,0) DEFAULT NULL,
+    ADD items int(10) DEFAULT 0,
+    ADD KEY crl_number (issuer_identifier,crl_number);
+EOF
+  fi
+
+  #Update db_num
+  echo "1" > "/etc/openxpki/.db_num"
 }
 
 function run_server {
@@ -168,6 +214,13 @@ elif [ "$1" == "init_db" ]; then
   checkDbVariables
   waitForDbConnection
   init_db
+elif [ "$1" == "update_db" ]; then
+  echo "================================================"
+  echo "Received updatedb parameter, updating database."
+  echo "================================================"
+  checkDbVariables
+  waitForDbConnection
+  update_db
 elif [ "$1" == "create_certs" ]; then
   echo "================================================"
   echo "Received create_certs parameter, creating certificates."
@@ -222,6 +275,10 @@ elif [ -z "$1" ]; then
     echo "================================================"
     echo "No parameters given and /etc/openxpki/.initiated exist."
     echo "================================================"
+    echo "================================================"
+    echo "Updating database"
+    echo "================================================"
+    update_db
     echo "================================================"
     echo "Starting Servers"
     echo "================================================"

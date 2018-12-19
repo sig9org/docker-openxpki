@@ -1,5 +1,5 @@
 db:
-  image: mysql:5.5
+  image: mysql:5.7
   restart: always
   volumes:
     - ./mysql-data:/var/lib/mysql

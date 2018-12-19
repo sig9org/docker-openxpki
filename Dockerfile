@@ -6,8 +6,8 @@ ENV LC_ALL en_US.UTF-8
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y wget && \
-    wget http://packages.openxpki.org/debian/Release.key -O - | apt-key add - && \
-    echo "deb http://packages.openxpki.org/debian/ jessie release" > /etc/apt/sources.list.d/openxpki.list && \
+    wget https://packages.openxpki.org/v2/debian/Release.key -O - | apt-key add - && \
+    echo "deb http://packages.openxpki.org/v2/debian/ jessie release" > /etc/apt/sources.list.d/openxpki.list && \
     echo "deb http://httpredir.debian.org/debian jessie non-free" >> /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -y locales && \
@@ -18,6 +18,7 @@ RUN apt-get update && \
       libapache2-mod-rpaf \
       libapache2-mod-fcgid \
       libopenxpki-perl \
+      openxpki-cgi-session-driver \
       openxpki-i18n \
       openca-tools \
       mysql-client && \
@@ -25,6 +26,7 @@ RUN apt-get update && \
     a2enmod rpaf && \
     a2dismod status && \
     apt-get remove -y wget && \
+    apt-get autoremove -y && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 ADD configs/apache2/mods-enabled/rpaf.conf /etc/apache2/mods-enabled/rpaf.conf
