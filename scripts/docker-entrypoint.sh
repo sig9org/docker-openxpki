@@ -145,6 +145,38 @@ EOF
     ADD items int(10) DEFAULT 0,
     ADD KEY crl_number (issuer_identifier,crl_number);
 EOF
+
+    mysql -u ${APP_DB_USER} -p${APP_DB_PASS} -D ${APP_DB_NAME} -h ${APP_DB_HOST} -P ${APP_DB_PORT} << EOF
+    CREATE TABLE `backend_session` (
+      `session_id` varchar(255) NOT NULL,
+      `data` longtext,
+      `created` int(10) UNSIGNED NOT NULL,
+      `modified` int(10) UNSIGNED NOT NULL,
+      `ip_address` varchar(45) DEFAULT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+    CREATE TABLE `frontend_session` (
+      `session_id` varchar(255) NOT NULL,
+      `data` longtext,
+      `created` int(10) UNSIGNED NOT NULL,
+      `modified` int(10) UNSIGNED NOT NULL,
+      `ip_address` varchar(45) DEFAULT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+    CREATE TABLE `ocsp_responses` (
+      `identifier` varchar(64) DEFAULT NULL,
+      `serial_number` varbinary(128) NOT NULL,
+      `authority_key_identifier` varbinary(128) NOT NULL,
+      `body` varbinary(4096) NOT NULL,
+      `expiry` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+    ALTER TABLE `workflow_history` CHANGE `workflow_node` `workflow_node` VARCHAR(64) NULL DEFAULT NULL;
+    ALTER TABLE `openxpki`.`certificate` DROP INDEX `identifier`, ADD UNIQUE `identifier` (`identifier`) USING BTREE;
+    ALTER TABLE `frontend_session`
+      ADD PRIMARY KEY (`session_id`),
+      ADD KEY `modified` (`modified`);
+    ALTER TABLE `ocsp_responses`
+      ADD PRIMARY KEY (`serial_number`,`authority_key_identifier`),
+      ADD KEY `identifier` (`identifier`);
+EOF
   fi
 
   #Update db_num
