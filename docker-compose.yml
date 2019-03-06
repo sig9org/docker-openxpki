@@ -6,12 +6,12 @@ db:
   environment:
     - MYSQL_ROOT_PASSWORD=my-super-secret-password
 web:
-  image: dime/openxpki:latest
+  image: sig9/docker-openxpki:latest
   dns: 8.8.8.8
   hostname: pki.example.org
   restart: always
   ports:
-    - "127.0.0.1:8080:80"
+    - "0.0.0.0:8080:80"
   links:
     - db:mysql
   volumes:
